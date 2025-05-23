@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -31,6 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
 
 type User = {
   name: string;
@@ -44,7 +47,13 @@ export default function Page() {
     email: "",
     password: "",
   });
+  const [updateForm, setUpdateForm] = useState<User>({
+    name: "",
+    email: "",
+    password: "",
+  });
   const [displayUsers, setDisplayUsers] = useState<any[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     const { data, error } = await supabase.from("users").select("*");
@@ -59,11 +68,17 @@ export default function Page() {
     fetchUsers();
   }, []);
 
+  // VALUE CHANGE
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
+  const updateChangeForm = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setUpdateForm((prev) => ({ ...prev, [name]: value }));
+  };
 
+  // SUBMIT
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -86,12 +101,68 @@ export default function Page() {
     } else {
       toast("Account has been created", {
         description: formatted,
-        action: {
-          label: "Ok",
-          onClick: () => console.log("Ok clicked"),
-        },
       });
       setForm({ name: "", email: "", password: "" });
+      fetchUsers();
+    }
+  };
+
+  // UPDATE
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!editingId) return;
+
+    const { data, error } = await supabase
+      .from("users")
+      .update(updateForm)
+      .eq("user_id", editingId);
+
+    const formatted = new Date().toLocaleString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    if (error) {
+      console.error("failed to update", error.message);
+    } else {
+      toast("Update successfully", {
+        description: formatted,
+      });
+      setEditingId(null);
+      setForm({ name: "", email: "", password: "" });
+      fetchUsers();
+    }
+  };
+
+  // DELETE
+  const handleDelete = async (userId: string) => {
+    const { error } = await supabase
+      .from("users")
+      .delete()
+      .eq("user_id", userId);
+
+    const formatted = new Date().toLocaleString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    if (error) {
+      console.error("Delete error", error.message);
+    } else {
+      toast("User deleted successfully", {
+        description: formatted,
+      }),
       fetchUsers();
     }
   };
@@ -142,19 +213,86 @@ export default function Page() {
                 <TableCell>{user.password}</TableCell>
                 <TableCell className="flex space-x-2">
                   {/* Edit */}
-                  <Dialog>
-                    <DialogTrigger className="text-blue-500">
+                  <AlertDialog>
+                    <AlertDialogTrigger
+                      onClick={() => {
+                        setEditingId(user.user_id);
+                        setUpdateForm({
+                          name: user.name,
+                          email: user.email,
+                          password: user.password,
+                        });
+                      }}
+                      className="text-blue-500"
+                    >
                       Edit
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Edit Account</DialogTitle>
-                      </DialogHeader>
-                    </DialogContent>
-                  </Dialog>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Edit Account</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Make changes to your profile here. Click save when
+                          you're done.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <form onSubmit={handleUpdate}>
+                        <div className="grid gap-4 py-4">
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="name" className="text-right">
+                              Name
+                            </Label>
+                            <Input
+                              id="name"
+                              name="name"
+                              type="text"
+                              value={updateForm.name}
+                              onChange={updateChangeForm}
+                              placeholder="Pedro Duarte"
+                              className="col-span-3"
+                            />
+                          </div>
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="email" className="text-right">
+                              Email
+                            </Label>
+                            <Input
+                              id="email"
+                              name="email"
+                              type="email"
+                              value={updateForm.email}
+                              onChange={updateChangeForm}
+                              placeholder="peduarte@outlook.com"
+                              className="col-span-3"
+                            />
+                          </div>
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="password" className="text-right">
+                              Password
+                            </Label>
+                            <Input
+                              id="password"
+                              name="password"
+                              type="password"
+                              value={updateForm.password}
+                              onChange={updateChangeForm}
+                              placeholder="peduarte123"
+                              className="col-span-3"
+                            />
+                          </div>
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogAction type="submit">
+                            Save Changes
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </form>
+                    </AlertDialogContent>
+                  </AlertDialog>
                   {/* Delete */}
                   <AlertDialog>
-                    <AlertDialogTrigger className="text-red-500">Delete</AlertDialogTrigger>
+                    <AlertDialogTrigger className="text-red-500">
+                      Delete
+                    </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>
@@ -168,7 +306,11 @@ export default function Page() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction>Confirm</AlertDialogAction>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(user.user_id)}
+                        >
+                          Confirm
+                        </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
